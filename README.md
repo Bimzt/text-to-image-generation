@@ -133,7 +133,7 @@ ngrok.set_auth_token("YOUR_NGROK_TOKEN")
 ### 1. Text-to-Image (Stable Diffusion)
 The diffusion model starts from random Gaussian noise in latent space and iteratively denoises it, conditioned on a CLIP text embedding of the input prompt. `xformers` is enabled for memory-efficient attention, allowing generation at higher resolutions.
 
-### 2. Segmentation (SAM — Segment Anything Model)
+### 2. Segmentation (Segment Anything Model)
 SAM from Meta AI performs zero-shot segmentation no training or fine-tuning needed. Given the generated image, SAM produces pixel-accurate masks for any object, either via automatic mask generation or point/box prompts.
 
 ### 3. Inpainting
