@@ -1,0 +1,15 @@
+diffusers==0.27.2
+transformers==4.40.0
+accelerate==0.30.0
+torch==2.3.0
+torchvision==0.18.0
+scipy==1.13.0
+Pillow==10.3.0
+xformers==0.0.26.post1
+segment-anything==1.0
+matplotlib==3.9.0
+numpy==1.26.4
+streamlit==1.35.0
+pyngrok==7.2.0
+streamlit-drawable-canvas==0.8.0
+invisible-watermark==0.2.0
