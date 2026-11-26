@@ -1,156 +1,133 @@
-# Text-to-Image Generation with Stable Diffusion & SAM
+# Text-to-Image Generation, Segmentation & Editing (Stable Diffusion v1.5 + SAM)
 
-> A Generative AI pipeline combining **Stable Diffusion** for text-to-image synthesis and **Segment Anything Model (SAM)** for intelligent image segmentation packaged into an interactive **Streamlit** web application.
+[![Python](https://img.shields.io/badge/Python-3.9%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![PyTorch](https://img.shields.io/badge/PyTorch-2.3.0-EE4C2C?logo=pytorch&logoColor=white)](https://pytorch.org/)
+[![Diffusers](https://img.shields.io/badge/Diffusers-0.27%2B-FFD21E)](https://huggingface.co/docs/diffusers)
+[![SAM](https://img.shields.io/badge/Meta%20AI-Segment%20Anything%20ViT--B-0467DF)](https://segment-anything.com/)
+[![Streamlit](https://img.shields.io/badge/Streamlit-1.35.0-FF4B4B?logo=streamlit&logoColor=white)](https://streamlit.io/)
 
----
-
-## Overview
-
-This project explores the frontier of **multimodal Generative AI** by building an end-to-end pipeline that goes beyond simple text-to-image generation. By integrating Stable Diffusion with Meta's Segment Anything Model (SAM), the system enables not just image synthesis from natural language prompts, but also precise object-level manipulation through segmentation-guided inpainting.
-
-Two deliverables are produced:
-- **`Pipeline_GenAI_Project.ipynb`** core diffusion pipeline: prompt engineering, image generation, and SAM-based segmentation
-- **`Streamlit_GenAI_Project.ipynb`** interactive web app built with Streamlit and a drawable canvas for real-time image editing
+> End-to-end **Generative AI** pipeline combining **Stable Diffusion v1.5** (`runwayml/stable-diffusion-v1-5` & `runwayml/stable-diffusion-inpainting`) with Meta AI's **Segment Anything Model (SAM ViT-B)** for prompt-driven synthesis, two-stage latent refinement, zero-shot auto-mask inpainting, multi-directional outpainting, and an interactive **StudioAI** Streamlit web application.
 
 ---
 
-## Key Capabilities
+## Background & Problem Statement
 
-- **Text-to-Image Generation** - synthesize photorealistic images from natural language prompts using Stable Diffusion
-- **Semantic Segmentation** - isolate any object within a generated image using SAM (zero-shot, prompt-free masking)
-- **Inpainting / Image Editing** - replace or modify masked regions guided by new text prompts
-- **Interactive Web App** - drawable canvas interface for user-defined segmentation masks via Streamlit
+Standard text-to-image generation produces static images where users have little control over individual objects, framing, or canvas boundaries without regenerating the entire scene from scratch. Meanwhile, manual pixel-level masking is tedious for non-technical creators, and single-pass diffusion often forces a trade-off between prompt adherence, denoising steps, and VRAM efficiency.
+
+This project addresses those gaps across two complementary deliverables:
+1. **`Pipeline_GenAI_Project.ipynb`:** A systematic experimentation and editing pipeline covering diffusion hyperparameter tuning, scheduler benchmarking, two-stage latent refinement, manual vs. SAM zero-shot inpainting, and single-direction/zoom-out outpainting.
+2. **`Streamlit_GenAI_Project.ipynb`:** A deployable interactive web app (**StudioAI**) with a freehand drawable canvas, batch selector, GPU memory flushing, and public tunneling via `pyngrok`.
+
+---
+
+## Objectives & Real-World Impact
+
+- **Controlled Multimodal Synthesis:** Benchmark how `guidance_scale`, `num_inference_steps`, and sampling schedulers (`Euler A`, `DPM++`, `DDIM`) shape visual fidelity and reproducibility.
+- **Object-Level & Boundary Editing:** Combine `SAM ViT-B` automatic segmentation and `StableDiffusionInpaintPipeline` for targeted object replacement and seamless 4-way canvas expansion (`Outpainting`).
+- **Practical Industry Use Cases:**
+  - **Creative Prototyping & Concept Art:** Accelerates visual ideation and scene expansion (zoom-out) for illustration, gaming, and film pre-production.
+  - **E-Commerce & Advertising:** Enables automated object swapping and background extension on product visuals without full re-shoots.
+  - **Accessible No-Code Editing:** Empowers non-programmers to generate, brush-mask, and outpaint images directly through the **StudioAI** browser UI.
 
 ---
 
 ## Repository Structure
 
-```
-├── Pipeline_GenAI_Project.ipynb       # Core Gen AI pipeline (generation + SAM segmentation)
-├── Streamlit_GenAI_Project.ipynb      # Streamlit web app with interactive canvas
-├── requirements.txt                   # All dependencies with pinned versions
+```text
+text-to-image-generation/
+├── Pipeline_GenAI_Project.ipynb     # Core GenAI pipeline: Txt2Img, tuning, Img2Img refiner, Inpainting (Manual & SAM), Outpainting
+├── Streamlit_GenAI_Project.ipynb    # Generates `logic.py` & `app.py` (StudioAI web app) + Colab ngrok deployment
+├── requirements.txt                 # Pinned Python dependencies
 └── README.md
 ```
 
 ---
 
-## Architecture
+## System Architecture & Pipeline Workflow
 
+```text
+Text Prompt + Negative Prompt + Seed
+        │
+        ▼
+┌───────────────────────────────────────────────────┐
+│  runwayml/stable-diffusion-v1-5 (FP16 + Slicing)  │  ← Schedulers: Euler A / DPM++ / DDIM
+└───────────────────────────────────────────────────┘
+        │
+        ├──► [Img2Img Refiner]     Latent (denoising_end=0.8) ──► StableDiffusionImg2ImgPipeline (denoising_start=0.8)
+        │
+        ├──► [Auto-Mask Inpaint]   SAM ViT-B (25 segments) ──► Select target mask ──► StableDiffusionInpaintPipeline
+        │
+        ├──► [Outpainting]         Gaussian-blurred expanded canvas (+128px / 4-way +96px) ──► Inpaint outer mask
+        │
+        └──► [StudioAI Web App]    Streamlit UI (app.py + logic.py) + streamlit-drawable-canvas + ngrok (port 8501)
 ```
-Text Prompt
-    │
-    ▼
-┌─────────────────────────────────┐
-│     Stable Diffusion v2         │  ← diffusers + xformers (memory-efficient attention)
-│  (Text → Latent → Image)        │
-└─────────────────────────────────┘
-    │
-    ▼
-Generated Image
-    │
-    ├──► [Pipeline Notebook]
-    │         │
-    │         ▼
-    │    SAM (Segment Anything)       ← Zero-shot object segmentation
-    │         │
-    │         ▼
-    │    Segmentation Mask
-    │         │
-    │         ▼
-    │    Inpainting Pipeline          ← Stable Diffusion Inpaint
-    │         │
-    │         ▼
-    │    Edited Image Output
-    │
-    └──► [Streamlit App]
-              │
-              ▼
-         Drawable Canvas             ← streamlit-drawable-canvas
-              │
-              ▼
-         User-defined Mask
-              │
-              ▼
-         Inpainting Result
-```
+
+---
+
+## Methodology & Implemented Modules
+
+### 1. Core Pipeline (`Pipeline_GenAI_Project.ipynb`)
+- **Text-to-Image & Hyperparameter Experiments** (base prompt: Martian astronaut digital illustration, `SEED = 222`):
+  - **Simple vs. Advanced:** Default (`cfg=7.5`, `steps=50`) vs. tuned (`cfg=12.0`, `steps=80`).
+  - **Guidance Scale Comparison (`steps=30`):** Evaluates `2.0` (loose/abstract), `7.5` (balanced), and `15.0` (strict prompt adherence with saturation risk).
+  - **Inference Steps Comparison (`cfg=7.5`):** Evaluates `5`, `15`, `30`, and `50` steps.
+  - **Batch Inference:** Generates a `2×2` grid (`num_images_per_prompt=4`) from a single prompt.
+  - **Scheduler Comparison:** Compares `EulerAncestralDiscreteScheduler` (`Euler A`), `DPMSolverMultistepScheduler` (`DPM++`), and `DDIMScheduler` (`DDIM`).
+- **Two-Stage Base + Refiner:** Stage 1 generates latents up to `denoising_end=0.8`; Stage 2 decodes/refines via `StableDiffusionImg2ImgPipeline` from `denoising_start=0.8` (`50` total steps).
+- **Inpainting (`runwayml/stable-diffusion-inpainting`, `512×512`):**
+  - *Manual Masking:* Draws a rectangular mask `[250, 200, 490, 430]` to insert a crashed satellite (`cfg=12.0`, `steps=60`).
+  - *SAM Auto-Masking:* Loads `sam_vit_b_01ec64.pth` with `SamAutomaticMaskGenerator` (`points_per_side=16`, `pred_iou_thresh=0.88`, `stability_score_thresh=0.92`, `min_mask_region_area=500`) and isolates the `second_largest` segment to replace the astronaut with a metallic robot astronaut.
+- **Outpainting & Iterative Zoom-Out:**
+  - *Single-Direction:* Expands right edge by `+128px` over a Gaussian-blurred background (`radius=30`).
+  - *Zoom-Out (4-Way):* Expands all 4 sides by `96px` (`radius=50` blur, multiples of 8) iteratively (`512×512` → `704×704` → `896×896` → `1088×1088`) and inpaints the surrounding landscape.
+
+### 2. StudioAI Interactive App (`Streamlit_GenAI_Project.ipynb`)
+Generates `logic.py` and `app.py` via `%%writefile`:
+- **`logic.py`:** Cached FP16 model loader (`load_models_cached`), `flush_memory()` (`gc.collect()` + `torch.cuda.empty_cache()`), `set_scheduler()`, batch `generate_image()`, `run_inpainting()`, and `prepare_outpainting()` (`+128px` all sides).
+- **`app.py`:** Two-tab interface (`✨ GENERATE` with `1–4` batch grid & image selector; `🛠️ EDIT` with `streamlit-drawable-canvas` freehand masking + debug mask expander and 1-click Zoom-Out mode).
+
+---
+
+## Experimental Findings & Results
+
+- **Optimal Steps & CFG Trade-off:** `5–15` steps leave heavy noise and missing garment/terrain details; **`30` steps** provides the best quality-to-compute sweet spot (`50` steps yields marginal edge smoothing). Optimal `guidance_scale` falls in **`7–13`** (`2.0` drifts off-prompt; `15.0` introduces over-saturation artifacts).
+- **Scheduler Characteristics:** `Euler A` produces expressive, organic textures; **`DPM++`** delivers the sharpest, cleanest convergence at 30 steps; **`DDIM`** offers smooth, highly reproducible deterministic outputs.
+- **SAM Zero-Shot Segmentation:** `SamAutomaticMaskGenerator` successfully detected **25 distinct segments** on the generated `512×512` Mars image, cleanly isolating the foreground astronaut (`second_largest` mask) for targeted inpainting without manual brush drawing.
+- **Outpainting & Deployment:** Both directional (`+128px`) and 4-way Zoom-Out (`512×512` → `704×704`) preserved scene lighting and Martian terrain continuity; the Streamlit app launched successfully on port `8501` via `pyngrok`.
 
 ---
 
 ## Tech Stack
 
-| Category | Library | Version |
-|----------|---------|---------|
-| Diffusion Model | `diffusers` | 0.27.2 |
-| Language Model Backend | `transformers` | 4.40.0 |
-| Deep Learning | `torch` + `torchvision` | 2.3.0 / 0.18.0 |
-| Memory-Efficient Attention | `xformers` | 0.0.26.post1 |
-| Segmentation | `segment-anything` (SAM) | 1.0 |
-| Web App | `streamlit` | 1.35.0 |
-| Interactive Canvas | `streamlit-drawable-canvas` | 0.8.0 |
-| Tunneling (Colab) | `pyngrok` | 7.2.0 |
-| Image Processing | `Pillow`, `numpy`, `scipy` | — |
-| Watermarking | `invisible-watermark` | 0.2.0 |
+| Category | Library | Pinned Version (`requirements.txt`) |
+| :--- | :--- | :--- |
+| Diffusion Pipelines | `diffusers`, `accelerate` | `0.27.2` / `0.30.0` *(notebook installs `>=0.30.0`)* |
+| Text Encoder / Backend | `transformers` | `4.40.0` |
+| Deep Learning & Attention | `torch`, `torchvision`, `xformers` | `2.3.0` / `0.18.0` / `0.0.26.post1` |
+| Segmentation | `segment-anything` (SAM ViT-B) | `1.0` |
+| Web UI & Tunneling | `streamlit`, `streamlit-drawable-canvas`, `pyngrok` | `1.35.0` / `0.8.0` / `7.2.0` |
+| Image & Numerics | `Pillow`, `numpy`, `scipy`, `matplotlib`, `invisible-watermark` | `10.3.0` / `1.26.4` / `1.13.0` / `3.9.0` / `0.2.0` |
 
 ---
 
 ## Getting Started
 
-### 1. Clone the repository
+### 1. Clone & Install Dependencies
+> Requires **Python 3.9+** and a **CUDA-capable GPU** (minimum 8 GB VRAM recommended for FP16 Stable Diffusion + SAM).
+
 ```bash
 git clone https://github.com/Bimzt/text-to-image-generation.git
 cd text-to-image-generation
-```
-
-### 2. Install dependencies
-
-> Requires **Python 3.9+** and a **CUDA-capable GPU** (minimum 8GB VRAM recommended). CPU inference is possible but very slow.
-
-```bash
 pip install -r requirements.txt
 ```
 
-### 3a. Run the pipeline notebook
-```bash
-jupyter notebook Pipeline_GenAI_Project.ipynb
-```
+### 2. Run the Core Pipeline Notebook
+Open `Pipeline_GenAI_Project.ipynb` in Google Colab (T4/L4 GPU) or Jupyter and run cells sequentially. Cell 1 automatically downloads `sam_vit_b_01ec64.pth` (~375 MB).
 
-### 3b. Run the Streamlit app (via Google Colab + ngrok)
-
-Open `Streamlit_GenAI_Project.ipynb` in Google Colab, set your ngrok auth token, and run all cells. The public URL will be printed in the output.
-
-```python
-# Inside the notebook:
-from pyngrok import ngrok
-ngrok.set_auth_token("YOUR_NGROK_TOKEN")
-```
-
-> Get a free ngrok token at [https://dashboard.ngrok.com](https://dashboard.ngrok.com)
-
----
-
-## How It Works
-
-### 1. Text-to-Image (Stable Diffusion)
-The diffusion model starts from random Gaussian noise in latent space and iteratively denoises it, conditioned on a CLIP text embedding of the input prompt. `xformers` is enabled for memory-efficient attention, allowing generation at higher resolutions.
-
-### 2. Segmentation (Segment Anything Model)
-SAM from Meta AI performs zero-shot segmentation no training or fine-tuning needed. Given the generated image, SAM produces pixel-accurate masks for any object, either via automatic mask generation or point/box prompts.
-
-### 3. Inpainting
-The segmentation mask is fed back into Stable Diffusion's inpainting pipeline. A new text prompt guides what fills the masked region, enabling object replacement, background swapping, or style transfer on selected regions.
-
-### 4. Streamlit Interactive App
-The web app provides a drawable canvas where users can manually brush masks over any region of the generated image, then trigger inpainting with a new text prompt all without writing code.
-
----
-
-## Real-World Impact
-
-Text-to-image generation with segmentation-guided editing represents one of the most commercially relevant areas in Generative AI today:
-
-- **Creative & Design Industry** - Enables designers and illustrators to rapidly prototype visual concepts from text descriptions, reducing ideation time from days to minutes
-- **E-Commerce & Advertising** - Automates product image generation and background replacement for catalog photography at scale, eliminating costly photo shoots
-- **Game & Film Production** - Accelerates asset generation for concept art, texture creation, and scene prototyping; studios can explore hundreds of visual directions before committing to production
-- **Medical Imaging (Future Direction)** - SAM's zero-shot segmentation capability translates directly to organ/lesion isolation in medical scans, and diffusion models show promise for synthetic training data generation
-- **Accessibility** - Empowers non-designers to create professional-grade visuals through natural language, democratizing visual content creation for small businesses and individuals
-- **Education & Research** - Demonstrates end-to-end understanding of latent diffusion models, attention mechanisms, and foundation model composability core competencies for modern AI/ML roles
+### 3. Launch the StudioAI Streamlit App (Colab + ngrok)
+1. Open `Streamlit_GenAI_Project.ipynb` in Google Colab with GPU enabled.
+2. Replace `auth_token` in the ngrok cell with your own token from [dashboard.ngrok.com](https://dashboard.ngrok.com):
+   ```python
+   ngrok.set_auth_token("YOUR_NGROK_TOKEN")
+   ```
+3. Run all cells to write `logic.py` and `app.py`, start Streamlit on port `8501`, and print the public ngrok URL. Close active tunnels afterward with `ngrok.kill()`.
