@@ -16,7 +16,7 @@ Standard text-to-image generation produces static images where users have little
 
 This project addresses those gaps across two complementary deliverables:
 1. **`Pipeline_GenAI_Project.ipynb`:** A systematic experimentation and editing pipeline covering diffusion hyperparameter tuning, scheduler benchmarking, two-stage latent refinement, manual vs. SAM zero-shot inpainting, and single-direction/zoom-out outpainting.
-2. **`Streamlit_GenAI_Project.ipynb`:** An interactive Streamlit web app (**StudioAI**) with a freehand drawable canvas, batch selector, and GPU memory flushing, run from Google Colab via `pyngrok` tunneling.
+2. **`Streamlit_GenAI_Project.ipynb`:** An interactive web app (**StudioAI**) run via Google Colab with a freehand drawable canvas, batch selector, GPU memory flushing, and temporary public tunneling via `pyngrok`.
 
 ---
 
@@ -36,7 +36,7 @@ This project addresses those gaps across two complementary deliverables:
 ```text
 text-to-image-generation/
 ├── Pipeline_GenAI_Project.ipynb     # Core GenAI pipeline: Txt2Img, tuning, Img2Img refiner, Inpainting (Manual & SAM), Outpainting
-├── Streamlit_GenAI_Project.ipynb    # Generates `logic.py` & `app.py` (StudioAI web app) run via Colab + ngrok
+├── Streamlit_GenAI_Project.ipynb    # Generates `logic.py` & `app.py` (StudioAI web app) + Colab ngrok tunneling
 ├── requirements.txt                 # Pinned Python dependencies
 └── README.md
 ```
@@ -93,7 +93,7 @@ Generates `logic.py` and `app.py` via `%%writefile`:
 - **Optimal Steps & CFG Trade-off:** `5–15` steps leave heavy noise and missing garment/terrain details; **`30` steps** provides the best quality-to-compute sweet spot (`50` steps yields marginal edge smoothing). Optimal `guidance_scale` falls in **`7–13`** (`2.0` drifts off-prompt; `15.0` introduces over-saturation artifacts).
 - **Scheduler Characteristics:** `Euler A` produces expressive, organic textures; **`DPM++`** delivers the sharpest, cleanest convergence at 30 steps; **`DDIM`** offers smooth, highly reproducible deterministic outputs.
 - **SAM Zero-Shot Segmentation:** `SamAutomaticMaskGenerator` successfully detected **25 distinct segments** on the generated `512×512` Mars image, cleanly isolating the foreground astronaut (`second_largest` mask) for targeted inpainting without manual brush drawing.
-- **Outpainting & Colab Execution:** Both directional (`+128px`) and 4-way Zoom-Out (`512×512` → `704×704`) preserved scene lighting and Martian terrain continuity; the Streamlit app ran interactively in Google Colab on port `8501` via `pyngrok` tunneling.
+- **Outpainting & Interactive Execution:** Both directional (`+128px`) and 4-way Zoom-Out (`512×512` → `704×704`) preserved scene lighting and Martian terrain continuity; the StudioAI Streamlit app runs interactively on port `8501` via Google Colab + `pyngrok`.
 
 ---
 
